@@ -237,10 +237,16 @@ const AgentSetupGuide = ({
   };
 
   useEffect(() => {
-    setTimeout(() => {
-      checkConfigToOpenChatbot();
+    const t = setTimeout(() => {
+      const active = document.activeElement;
+      const isTyping =
+        active && (active.tagName === "TEXTAREA" || active.tagName === "INPUT" || active.isContentEditable);
+      if (!isTyping) {
+        checkConfigToOpenChatbot();
+      }
     }, 2000);
-  }, [bridgeApiKey, effectivePrompt, shouldPromptShow, modelName, bridgeType, draftPrompt, hasDraftPromptChanges]);
+    return () => clearTimeout(t);
+  }, [bridgeApiKey, prompt, shouldPromptShow, modelName, bridgeType]);
 
   useEffect(() => {
     if (typeof onVisibilityChange === "function") {
