@@ -15,6 +15,7 @@ import {
   ChevronDown,
   RefreshCcw,
   Settings,
+  BarChart3,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDispatch } from "react-redux";
@@ -110,11 +111,13 @@ const Navbar = ({ isEmbedUser, params }) => {
       isUpdatingBridge: state.bridgeReducer.isUpdatingBridge ?? false,
       activeTab: pathname.includes("configure")
         ? "configure"
-        : pathname.includes("history")
-          ? "history"
-          : pathname.includes("testcase")
-            ? "testcase"
-            : "configure",
+        : pathname.includes("history2")
+          ? "history2"
+          : pathname.includes("history")
+            ? "history"
+            : pathname.includes("testcase")
+              ? "testcase"
+              : "configure",
       showHomeButton: state.appInfoReducer?.embedUserDetails?.showHomeButton ?? true,
       showHistory: state.appInfoReducer?.embedUserDetails?.showHistory,
       bridgeName: state?.bridgeReducer?.allBridgesMap?.[bridgeId]?.name || "",
@@ -159,6 +162,15 @@ const Navbar = ({ isEmbedUser, params }) => {
         icon: MessageCircleMore,
         shortLabel: "History",
         shortcut: "G H",
+      });
+    }
+    if (!isEmbedUser || (isEmbedUser && showHistory)) {
+      baseTabs.push({
+        id: "history2",
+        label: "History Analytics",
+        icon: BarChart3,
+        shortLabel: "Analytics",
+        shortcut: "G A",
       });
     }
     return baseTabs;
@@ -430,6 +442,11 @@ const Navbar = ({ isEmbedUser, params }) => {
         } else if (e.key === "h" || e.key === "H") {
           e.preventDefault();
           handleTabChange("history");
+          gPressed = false;
+          if (timeoutId) clearTimeout(timeoutId);
+        } else if (e.key === "a" || e.key === "A") {
+          e.preventDefault();
+          handleTabChange("history2");
           gPressed = false;
           if (timeoutId) clearTimeout(timeoutId);
         }
