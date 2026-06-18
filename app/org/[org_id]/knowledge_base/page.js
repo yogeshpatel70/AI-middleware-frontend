@@ -4,6 +4,7 @@ import CustomTable from "@/components/customTable/CustomTable";
 import MainLayout from "@/components/layoutComponents/MainLayout";
 import KnowledgeBaseModal from "@/components/modals/KnowledgeBaseModal";
 import ResourceChunksModal from "@/components/modals/ResourceChunksModal";
+import ResourceInUseModal from "@/components/modals/ResourceInUseModal";
 import QueryKnowledgeBaseModal from "@/components/modals/QueryKnowledgeBaseModal";
 import PageHeader from "@/components/Pageheader";
 import { useCustomSelector } from "@/customHooks/customSelector";
@@ -43,6 +44,7 @@ const Page = ({ params }) => {
   const [selectedDataToDelete, setselectedDataToDelete] = useState(null);
   const [selectedResourceForChunks, setSelectedResourceForChunks] = useState({ id: null, name: null });
   const [selectedResourceForQuery, setSelectedResourceForQuery] = useState(null);
+  const [resourceInUseInfo, setResourceInUseInfo] = useState({ usage: null, resourceName: "" });
   const { isDeleting, executeDelete } = useDeleteOperation();
   useEffect(() => {
     setFilterKnowledgeBase(knowledgeBaseData);
@@ -118,9 +120,13 @@ const Page = ({ params }) => {
   };
 
   const handleDeleteKnowledgebase = async (item) => {
-    await executeDelete(async () => {
+    const { result } = await executeDelete(async () => {
       return dispatch(deleteResourceAction({ data: { id: item?._id, orgId: resolvedParams?.org_id } }));
     });
+    if (result && result.success === false && result.isInUse) {
+      setResourceInUseInfo({ usage: result.usage || {}, resourceName: item?.actual_name || item?.actualName || "" });
+      openModal(MODAL_TYPE.RESOURCE_IN_USE_MODAL);
+    }
   };
   const EndComponent = ({ row }) => {
     return (
@@ -252,6 +258,11 @@ const Page = ({ params }) => {
           setSelectedResource={setSelectedKnowledgeBase}
         />
         <ResourceChunksModal resourceId={selectedResourceForChunks.id} resourceName={selectedResourceForChunks.name} />
+        <ResourceInUseModal
+          usage={resourceInUseInfo.usage}
+          resourceName={resourceInUseInfo.resourceName}
+          orgId={resolvedParams.org_id}
+        />
         <QueryKnowledgeBaseModal resource={selectedResourceForQuery} orgId={resolvedParams.org_id} />
         <DeleteModal
           onConfirm={handleDeleteKnowledgebase}

@@ -90,9 +90,14 @@ export const deleteResource = async (id) => {
     const response = await axios.delete(`${URL}/api/rag/resource/${id}`);
     return response?.data;
   } catch (error) {
-    toast.error(error?.response?.data?.message || "Failed to delete resource");
+    const data = error?.response?.data;
+    if (data?.isInUse) {
+      // Don't toast here; caller will open the in-use modal.
+      return data;
+    }
+    toast.error(data?.message || "Failed to delete resource");
     console.error(error);
-    return error;
+    return data || { success: false };
   }
 };
 

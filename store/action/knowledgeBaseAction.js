@@ -184,6 +184,9 @@ export const deleteResourceAction =
         );
         return { success: true };
       }
+      if (response?.isInUse) {
+        return { success: false, isInUse: true, usage: response?.usage || {}, message: response?.message };
+      }
       return { success: false };
     } catch (error) {
       console.error("Error deleting resource:", error);
