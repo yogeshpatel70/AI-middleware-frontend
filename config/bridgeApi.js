@@ -18,9 +18,9 @@ export const getSingleBridge = async (bridgeId) => {
   }
 };
 
-export const getAllBridges = async () => {
+export const getAllBridges = async (page = 1, limit = 30) => {
   try {
-    const data = await axios.get(`${URL}/api/agent/`);
+    const data = await axios.get(`${URL}/api/agent/`, { params: { page, limit } });
     return data;
   } catch (error) {
     console.error(error);

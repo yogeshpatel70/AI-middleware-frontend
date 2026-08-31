@@ -403,57 +403,66 @@ export const deleteBridgeVersionAction =
     }
   };
 
-export const getAllBridgesAction = (onSuccess) => async (dispatch) => {
-  try {
-    dispatch(isPending());
-    const response = await getAllBridges();
-    const embed_token = response?.data?.embed_token;
-    const alerting_embed_token = response?.data?.alerting_embed_token;
-    const history_page_chatbot_token = response?.data?.history_page_chatbot_token;
-    const triggerEmbedToken = response?.data?.trigger_embed_token;
-    const average_response_time = response?.data?.avg_response_time;
-    const doctstar_embed_token = response?.data?.doctstar_embed_token;
-    const bridgesPayload = response?.data?.agent || [];
+export const getAllBridgesAction =
+  (onSuccess, page = 1) =>
+  async (dispatch) => {
+    try {
+      dispatch(isPending());
+      const response = await getAllBridges(page);
+      const embed_token = response?.data?.embed_token;
+      const alerting_embed_token = response?.data?.alerting_embed_token;
+      const history_page_chatbot_token = response?.data?.history_page_chatbot_token;
+      const triggerEmbedToken = response?.data?.trigger_embed_token;
+      const average_response_time = response?.data?.avg_response_time;
+      const doctstar_embed_token = response?.data?.doctstar_embed_token;
+      const bridgesPayload = response?.data?.agent || [];
 
-    if (onSuccess) onSuccess(bridgesPayload);
-    dispatch(
-      fetchAllBridgeReducer({
-        bridges: bridgesPayload,
-        orgId: response?.data?.org_id,
-        embed_token,
-        doctstar_embed_token,
-        alerting_embed_token,
-        history_page_chatbot_token,
-        triggerEmbedToken,
-        average_response_time,
-      })
-    );
+      if (onSuccess) onSuccess(bridgesPayload);
+      dispatch(
+        fetchAllBridgeReducer({
+          bridges: bridgesPayload,
+          orgId: response?.data?.org_id,
+          page,
+          embed_token,
+          doctstar_embed_token,
+          alerting_embed_token,
+          history_page_chatbot_token,
+          triggerEmbedToken,
+          average_response_time,
+        })
+      );
 
-    // Update user properties with agent metrics for user segmentation
-    const totalAgents = bridgesPayload.length;
-    const publishedAgents = bridgesPayload.filter((agent) => agent.published_version_id).length;
+      // Only run these one-off side effects on the initial page load, not on
+      // every subsequent infinite-scroll page fetch.
+      if (page === 1) {
+        // Update user properties with agent metrics for user segmentation
+        const totalAgents = bridgesPayload.length;
+        const publishedAgents = bridgesPayload.filter((agent) => agent.published_version_id).length;
 
-    posthog.setPersonProperties({
-      total_agents: totalAgents,
-      published_agents: publishedAgents,
-      has_agents: totalAgents > 0,
-      agents_last_fetched: new Date().toISOString(),
-    });
+        posthog.setPersonProperties({
+          total_agents: totalAgents,
+          published_agents: publishedAgents,
+          has_agents: totalAgents > 0,
+          agents_last_fetched: new Date().toISOString(),
+        });
 
-    const integrationData = await integration(embed_token);
-    const flowObject = integrationData?.flows?.reduce((obj, item) => {
-      obj[item.id] = item;
-      return obj;
-    }, {});
-    dispatch(fetchAllBridgeReducer({ orgId: response?.data?.org_id, integrationData: flowObject }));
+        const integrationData = await integration(embed_token);
+        const flowObject = integrationData?.flows?.reduce((obj, item) => {
+          obj[item.id] = item;
+          return obj;
+        }, {});
+        dispatch(fetchAllBridgeReducer({ orgId: response?.data?.org_id, integrationData: flowObject }));
 
-    const triggerData = await integration(triggerEmbedToken);
-    dispatch(fetchAllBridgeReducer({ orgId: response?.data?.org_id, triggerData: triggerData?.flows || [] }));
-  } catch (error) {
-    dispatch(isError());
-    console.error(error);
-  }
-};
+        const triggerData = await integration(triggerEmbedToken);
+        dispatch(fetchAllBridgeReducer({ orgId: response?.data?.org_id, triggerData: triggerData?.flows || [] }));
+      }
+
+      return bridgesPayload;
+    } catch (error) {
+      dispatch(isError());
+      console.error(error);
+    }
+  };
 
 export const getAllFunctions = () => async (dispatch) => {
   try {

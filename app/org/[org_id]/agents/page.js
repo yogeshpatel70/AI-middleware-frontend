@@ -15,6 +15,7 @@ import {
   clearBridgeUsageMetricsAction,
   deleteBridgeAction,
   fetchBridgeUsageMetricsAction,
+  getAllBridgesAction,
 } from "@/store/action/bridgeAction";
 import { MODAL_TYPE } from "@/utils/enums";
 import useTutorialVideos from "@/hooks/useTutorialVideos";
@@ -28,10 +29,11 @@ import { Folder, Funnel, Undo2, Infinity, Trash2 } from "lucide-react";
 
 import { ClockIcon, EllipsisIcon } from "@/components/Icons";
 import { useRouter } from "next/navigation";
-import { use, useEffect, useMemo, useRef, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDispatch } from "react-redux";
 import { toast } from "react-toastify";
+import InfiniteScroll from "react-infinite-scroll-component";
 import usePortalDropdown from "@/customHooks/usePortalDropdown";
 import SearchItems from "@/components/UI/SearchItems";
 import AgentEmptyState from "@/components/AgentEmptyState";
@@ -409,6 +411,19 @@ function Home({ params, searchParams, isEmbedUser }) {
   const usageFilterPopoverRef = useRef(null);
   const [selectedAgentForAccess, setSelectedAgentForAccess] = useState(null);
   const [shouldSortByMetrics, _setShouldSortByMetrics] = useState(false); // Track if user wants sorting
+
+  // Pagination state for infinite scroll on the agents list (mirrors the history page pattern)
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+
+  const fetchMoreData = useCallback(async () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    const result = await dispatch(getAllBridgesAction(undefined, nextPage));
+    if (!Array.isArray(result) || result.length < 30) {
+      setHasMore(false);
+    }
+  }, [page, dispatch]);
 
   // Use portal dropdown hook
   const { handlePortalOpen, handlePortalCloseImmediate, PortalDropdown, PortalStyles } = usePortalDropdown({
@@ -1356,55 +1371,24 @@ function Home({ params, searchParams, isEmbedUser }) {
                       />
                     )}
 
-                    {activeFolderId !== "trash" && (
-                      <div className="w-full overflow-visible">
-                        <CustomTable
-                          data={displayedUnArchivedBridges}
-                          // draggableRows={true}
-                          // onDragStart={(row) => setDraggedResourceId(row._id)}
-                          onDragEnd={() => setDraggedResourceId(null)}
-                          columnsToShow={[
-                            "name",
-                            "promptDetails",
-                            "cost",
-                            "totalTokens",
-                            "agent_limit",
-                            "last_used",
-                            "created_by",
-                            "updated_by",
-                          ]}
-                          sorting
-                          sortingColumns={[
-                            "name",
-                            "cost",
-                            "totalTokens",
-                            "agent_limit",
-                            "last_used",
-                            "created_by",
-                            "updated_by",
-                          ]}
-                          handleRowClick={(props) =>
-                            onClickConfigure(props?._id, props?.versionId, props?.published_version_id)
-                          }
-                          handleRowHover={handleRowHover}
-                          keysToExtractOnRowClick={["_id", "versionId", "published_version_id"]}
-                          keysToWrap={["name", "model"]}
-                          endComponent={EndComponent}
-                          onUsageFilterClick={handleUsageFilterIconClick}
-                          isUsageFilterActive={isUsageFilterActive}
-                          usageFilterLabel={usageFilterLabel}
-                          usageFilterIsLoading={isUsageFilterSubmitting}
-                          customGetColumnLabel={getColumnLabel}
-                          customCellRenderers={customCellRenderers}
-                        />
-                      </div>
-                    )}
-
-                    {displayedDeletedBridges?.length > 0 && (
-                      <div className="">
-                        <div className="opacity-60 overflow-visible">
+                    <InfiniteScroll
+                      dataLength={allBridges.length}
+                      next={fetchMoreData}
+                      hasMore={hasMore}
+                      loader={
+                        <div className="flex justify-center items-center py-4">
+                          <span className="loading loading-spinner loading-sm"></span>
+                        </div>
+                      }
+                      scrollableTarget="org-main-scroll-container"
+                    >
+                      {activeFolderId !== "trash" && (
+                        <div className="w-full overflow-visible">
                           <CustomTable
-                            data={displayedDeletedBridges}
+                            data={displayedUnArchivedBridges}
+                            // draggableRows={true}
+                            // onDragStart={(row) => setDraggedResourceId(row._id)}
+                            onDragEnd={() => setDraggedResourceId(null)}
                             columnsToShow={[
                               "name",
                               "promptDetails",
@@ -1424,18 +1408,61 @@ function Home({ params, searchParams, isEmbedUser }) {
                               "last_used",
                               "created_by",
                               "updated_by",
-                              "created_at",
-                              "updated_at",
                             ]}
+                            handleRowClick={(props) =>
+                              onClickConfigure(props?._id, props?.versionId, props?.published_version_id)
+                            }
+                            handleRowHover={handleRowHover}
+                            keysToExtractOnRowClick={["_id", "versionId", "published_version_id"]}
                             keysToWrap={["name", "model"]}
-                            endComponent={DeletedEndComponent}
+                            endComponent={EndComponent}
+                            onUsageFilterClick={handleUsageFilterIconClick}
                             isUsageFilterActive={isUsageFilterActive}
+                            usageFilterLabel={usageFilterLabel}
+                            usageFilterIsLoading={isUsageFilterSubmitting}
                             customGetColumnLabel={getColumnLabel}
                             customCellRenderers={customCellRenderers}
                           />
                         </div>
-                      </div>
-                    )}
+                      )}
+
+                      {displayedDeletedBridges?.length > 0 && (
+                        <div className="">
+                          <div className="opacity-60 overflow-visible">
+                            <CustomTable
+                              data={displayedDeletedBridges}
+                              columnsToShow={[
+                                "name",
+                                "promptDetails",
+                                "cost",
+                                "totalTokens",
+                                "agent_limit",
+                                "last_used",
+                                "created_by",
+                                "updated_by",
+                              ]}
+                              sorting
+                              sortingColumns={[
+                                "name",
+                                "cost",
+                                "totalTokens",
+                                "agent_limit",
+                                "last_used",
+                                "created_by",
+                                "updated_by",
+                                "created_at",
+                                "updated_at",
+                              ]}
+                              keysToWrap={["name", "model"]}
+                              endComponent={DeletedEndComponent}
+                              isUsageFilterActive={isUsageFilterActive}
+                              customGetColumnLabel={getColumnLabel}
+                              customCellRenderers={customCellRenderers}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </InfiniteScroll>
                   </div>
                 )}
               </div>

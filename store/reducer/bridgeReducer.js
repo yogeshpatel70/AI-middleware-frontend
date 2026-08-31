@@ -66,12 +66,20 @@ export const bridgeReducer = createSlice({
       state.error = false;
     },
     fetchAllBridgeReducer: (state, action) => {
-      const { orgId, bridges, ...restPayload } = action.payload;
+      const { orgId, bridges, page, ...restPayload } = action.payload;
+      const existingOrgs = state.org?.[orgId]?.orgs || [];
+      let orgs = existingOrgs;
+      if (bridges) {
+        // page > 1 means this is an infinite-scroll "load more" fetch, so
+        // concat onto the existing list; otherwise (page 1 or no page passed)
+        // replace the list wholesale, same as before pagination was added.
+        orgs = page && page > 1 ? [...existingOrgs, ...bridges] : [...bridges];
+      }
       state.org = {
         ...state.org,
         [orgId]: {
           ...state.org?.[orgId],
-          orgs: bridges ? [...bridges] : state.org?.[orgId]?.orgs || [],
+          orgs,
           ...restPayload,
         },
       };
