@@ -28,6 +28,8 @@ import {
   extractErrorMessage,
   formatCostValue,
   formatTokensTable,
+  getIconOfService,
+  omitHiddenVariables,
   parseNestedJson,
 } from "@/utils/utility";
 import { BATCH_PROCESSING_STATUSES, MODAL_TYPE } from "@/utils/enums";
@@ -407,7 +409,7 @@ const ThreadItem = ({
   const [messageType, setMessageType] = useState(getInitialMessageType());
   const [toolsData, setToolsData] = useState([]);
   const toolsDataModalRef = useRef(null);
-  const { embedToken, knowledgeBaseData, isEmbedUser, orgBridges, allBridgesMap, publishedVersionId } =
+  const { embedToken, knowledgeBaseData, isEmbedUser, orgBridges, allBridgesMap, publishedVersionId, showTestcases } =
     useCustomSelector((state) => ({
       embedToken: state?.bridgeReducer?.org?.[params?.org_id]?.embed_token,
       knowledgeBaseData: state?.knowledgeBaseReducer?.knowledgeBaseData?.[params?.org_id] || [],
@@ -415,7 +417,18 @@ const ThreadItem = ({
       orgBridges: state?.bridgeReducer?.org?.[params?.org_id]?.orgs || [],
       allBridgesMap: state?.bridgeReducer?.allBridgesMap || {},
       publishedVersionId: state?.bridgeReducer?.allBridgesMap?.[item?.bridge_id]?.published_version_id,
+      showTestcases: state?.appInfoReducer?.embedUserDetails?.showTestcases !== false,
     }));
+
+  // Embed users only see the test case action when the embed config enables it
+  const canAddTestCase = !isEmbedUser || showTestcases;
+
+  // Versions are surfaced as their position (1, 2, ...) rather than the raw mongo id
+  const versionNumber = useMemo(() => {
+    const versions = allBridgesMap?.[item?.bridge_id]?.versions || [];
+    const versionIndex = versions.indexOf(item?.version_id);
+    return versionIndex >= 0 ? versionIndex + 1 : null;
+  }, [allBridgesMap, item?.bridge_id, item?.version_id]);
   const [isDropupOpen, setIsDropupOpen] = useState(false);
   const [isRerunning, setIsRerunning] = useState(false);
   const [isSystemPromptExpanded, setIsSystemPromptExpanded] = useState(false);
@@ -451,8 +464,11 @@ const ThreadItem = ({
   // Keep toolbar visible whenever any accordion panel is open
   const isAnyPanelOpen = isVariablesOpen || isMoreDetailsExpanded || isSystemPromptExpanded;
 
+  // Platform-injected variables are hidden from the user-facing variables panel
+  const visibleVariables = useMemo(() => omitHiddenVariables(item?.variables), [item?.variables]);
+
   const handleCopyAllVariables = () => {
-    const jsonString = JSON.stringify(item?.variables || {}, null, 2);
+    const jsonString = JSON.stringify(visibleVariables, null, 2);
     navigator.clipboard.writeText(jsonString);
     setCopiedAllVariables(true);
     toast.success("Variables copied to clipboard");
@@ -1186,7 +1202,7 @@ const ThreadItem = ({
     </>
   );
 
-  const variableCount = Object.keys(item?.variables || {}).length;
+  const variableCount = Object.keys(visibleVariables).length;
 
   const renderVariablesPanel = (panelClassName = "max-w-[620px] w-full ml-auto") => {
     if (!isVariablesOpen || variableCount === 0) return null;
@@ -1214,7 +1230,7 @@ const ThreadItem = ({
           </button>
         </div>
         <div>
-          {Object.entries(item?.variables || {})
+          {Object.entries(visibleVariables)
             .filter(([key]) => key.toLowerCase().includes(variablesFilter.toLowerCase()))
             .map(([key, value]) => {
               const raw =
@@ -1282,9 +1298,15 @@ const ThreadItem = ({
                   key={key}
                   className="flex items-start gap-4 border-b border-base-content/10 px-4 py-2.5 last:border-b-0"
                 >
-                  <span className="min-w-[120px] shrink-0 text-xs font-normal text-trace-gold">{displayKey}</span>
+                  <span className="min-w-[120px] shrink-0 text-xs font-normal text-trace-gold">
+                    {key === "version_id" && versionNumber ? "Version" : displayKey}
+                  </span>
                   <span className="text-xs break-all text-base-content whitespace-pre-wrap">
-                    {key === "createdAt" || key === "created_at" ? new Date(value).toLocaleString() : value?.toString()}
+                    {key === "createdAt" || key === "created_at"
+                      ? new Date(value).toLocaleString()
+                      : key === "version_id" && versionNumber
+                        ? versionNumber
+                        : value?.toString()}
                   </span>
                 </div>
               );
@@ -1394,7 +1416,7 @@ const ThreadItem = ({
   };
 
   const renderResponseActionButtons = () => {
-    const showEdit = !item?.llm_urls?.length && !item?.fromRTLayer;
+    const showEdit = !isEmbedUser && !item?.llm_urls?.length && !item?.fromRTLayer;
     const isError = Boolean(item?.error);
     return (
       <div className="mt-2 flex flex-wrap items-center justify-start gap-1.5">
@@ -1404,7 +1426,7 @@ const ThreadItem = ({
           icon={RotateCcw}
           onClick={handleRerun}
           disabled={isRerunning || !publishedVersionId}
-          title={!publishedVersionId ? "No published version available" : "Rerun this message"}
+          title={!publishedVersionId ? "No published version available" : "Rerun this message with published version"}
         >
           {isRerunning ? "Running..." : "Rerun"}
         </ThreadActionPill>
@@ -1416,7 +1438,7 @@ const ThreadItem = ({
         >
           Copy
         </ThreadActionPill>
-        {!isError && !item?.llm_urls?.length && (
+        {canAddTestCase && !isError && !item?.llm_urls?.length && (
           <ThreadActionPill
             id="thread-item-add-test-case-button"
             testId="thread-item-add-test-case-button"
@@ -1476,15 +1498,17 @@ const ThreadItem = ({
         >
           Copy
         </ThreadActionPill>
-        <ThreadActionPill
-          testId="thread-item-user-aiconfig-button"
-          id="thread-item-user-aiconfig-button"
-          icon={SlidersHorizontal}
-          trailing={Maximize2}
-          onClick={() => handleUserButtonClick("AiConfig")}
-        >
-          AI Config
-        </ThreadActionPill>
+        {!isEmbedUser ? (
+          <ThreadActionPill
+            testId="thread-item-user-aiconfig-button"
+            id="thread-item-user-aiconfig-button"
+            icon={SlidersHorizontal}
+            trailing={Maximize2}
+            onClick={() => handleUserButtonClick("AiConfig")}
+          >
+            AI Config
+          </ThreadActionPill>
+        ) : null}
         {(() => {
           return hasMemoryContent ? (
             <ThreadActionPill
@@ -1498,7 +1522,7 @@ const ThreadItem = ({
             </ThreadActionPill>
           ) : null;
         })()}
-        {item?.latency ? (
+        {!isEmbedUser && item?.latency ? (
           <ThreadActionPill
             testId="thread-item-user-latency-button"
             id="thread-item-user-latency-button"
@@ -1554,25 +1578,44 @@ const ThreadItem = ({
             Variables
           </ThreadActionPill>
         ) : null}
-        <ThreadActionPill
-          testId="thread-item-user-more-button"
-          id="thread-item-user-more-button"
-          trailing={ChevronRight}
-          trailingClassName={`transition-transform duration-200 ${isMoreDetailsExpanded ? "rotate-90" : ""}`}
-          active={isMoreDetailsExpanded}
-          onClick={() => {
-            setIsMoreDetailsExpanded((v) => {
-              const newVal = !v;
-              if (newVal) {
-                setIsSystemPromptExpanded(false);
-                setIsVariablesOpen(false);
-              }
-              return newVal;
-            });
-          }}
-        >
-          More
-        </ThreadActionPill>
+        {item?.model || item?.service || versionNumber ? (
+          <span
+            data-testid="thread-item-model-meta"
+            className="inline-flex items-center gap-1.5 text-xs text-base-content/55"
+            title={[item?.service, item?.model, versionNumber ? `Version ${versionNumber}` : null]
+              .filter(Boolean)
+              .join(" · ")}
+          >
+            {versionNumber ? (
+              <span className="rounded-md bg-primary px-1.5 py-0.5 text-[11px] font-medium text-primary-content">
+                V{versionNumber}
+              </span>
+            ) : null}
+            {item?.service ? getIconOfService(item.service, 12, 12) : null}
+            {item?.model ? <span className="max-w-[180px] truncate">{item.model}</span> : null}
+          </span>
+        ) : null}
+        {!isEmbedUser ? (
+          <ThreadActionPill
+            testId="thread-item-user-more-button"
+            id="thread-item-user-more-button"
+            trailing={ChevronRight}
+            trailingClassName={`transition-transform duration-200 ${isMoreDetailsExpanded ? "rotate-90" : ""}`}
+            active={isMoreDetailsExpanded}
+            onClick={() => {
+              setIsMoreDetailsExpanded((v) => {
+                const newVal = !v;
+                if (newVal) {
+                  setIsSystemPromptExpanded(false);
+                  setIsVariablesOpen(false);
+                }
+                return newVal;
+              });
+            }}
+          >
+            More
+          </ThreadActionPill>
+        ) : null}
         {showTimestamp ? (
           <time className="shrink-0 text-xs text-base-content/60">{formatDateAndTime(item.created_at)}</time>
         ) : null}

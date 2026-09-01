@@ -1,7 +1,7 @@
 import { useCustomSelector } from "@/customHooks/customSelector";
 import { createTestCaseAction } from "@/store/action/testCasesAction";
 import { MODAL_TYPE } from "@/utils/enums";
-import { closeModal } from "@/utils/utility";
+import { closeModal, omitHiddenVariables } from "@/utils/utility";
 import { Trash2, ChevronDown as ChevronDownIcon, FlaskConical, ExternalLink } from "lucide-react";
 import { useParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
@@ -88,14 +88,7 @@ function AddTestCaseModal({ testCaseConversation, setTestCaseConversation, chann
 
   // Filter out unwanted variables
   const filterVariables = (vars) => {
-    const excludeKeys = ["_user_message", "current_time_date_and_current_identifier", "pre_function"];
-    const filtered = {};
-    Object.entries(vars || {}).forEach(([key, value]) => {
-      if (!excludeKeys.includes(key)) {
-        filtered[key] = value;
-      }
-    });
-    return filtered;
+    return omitHiddenVariables(vars);
   };
 
   const [finalTestCases, setFinalTestCases] = useState([]);
