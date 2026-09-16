@@ -1,10 +1,17 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useCustomSelector } from "@/customHooks/customSelector";
 import CodeBlock from "@/components/codeBlock/CodeBlock";
+import SdkGuideTab from "./SdkGuideTab";
+
+const INTEGRATION_MODES = [
+  { id: "script", label: "Use UI (Script)" },
+  { id: "sdk", label: "Use SDK" },
+];
 
 const IntegrationTab = ({ data }) => {
+  const [mode, setMode] = useState("script");
   const embedToken = "";
   const gtwyAccessToken = useCustomSelector(
     (state) => state?.userDetailsReducer?.organizations?.[data?.org_id]?.meta?.gtwyAccessToken || ""
@@ -65,158 +72,180 @@ window.addEventListener('message', (event) => {
 
   return (
     <div className="space-y-6" data-testid="integration-tab">
-      {/* Step 1: Generate Embed Token */}
-      <div className="card bg-base-100 border border-base-300" data-testid="integration-tab-step1">
-        <div className="card-body">
-          <h4 className="card-title text-base">Step 1: Generate Embed Token</h4>
-          <div className="space-y-6">
-            {/* JWT Payload */}
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">JWT Payload</span>
-              </label>
-              <CodeBlock className="language-json">{jwtPayload}</CodeBlock>
-            </div>
+      {/* Mode switcher: embed via a UI script tag, or call GTWY's full functionality via the SDK */}
+      <div className="flex items-center justify-center" data-testid="integration-tab-mode-switcher">
+        <div className="join">
+          {INTEGRATION_MODES.map((m) => (
+            <button
+              key={m.id}
+              data-testid={`integration-tab-mode-${m.id}`}
+              onClick={() => setMode(m.id)}
+              className={`join-item btn btn-sm ${mode === m.id ? "btn-primary" : "btn-ghost"}`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-            {/* Access Token */}
-            <div className="form-control">
-              <label className="label flex flex-col items-start space-y-1">
-                <span className="label-text font-medium">Access Token (Signed with RS256)</span>
-              </label>
-              <div className="text-sm text-base-content/70 leading-relaxed ml-1">
-                RS256 is an asymmetric signing algorithm defined in
-                <a
-                  href="https://datatracker.ietf.org/doc/html/rfc7518#section-3.1"
-                  className="text-blue-600 underline ml-1"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  RFC 7518
-                </a>
-              </div>
-              {gtwyAccessToken ? (
-                <div className="mt-3">
-                  <CodeBlock className="language-text">{gtwyAccessToken}</CodeBlock>
+      {mode === "sdk" ? (
+        <SdkGuideTab />
+      ) : (
+        <>
+          {/* Step 1: Generate Embed Token */}
+          <div className="card bg-base-100 border border-base-300" data-testid="integration-tab-step1">
+            <div className="card-body">
+              <h4 className="card-title text-base">Step 1: Generate Embed Token</h4>
+              <div className="space-y-6">
+                {/* JWT Payload */}
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text font-medium">JWT Payload</span>
+                  </label>
+                  <CodeBlock className="language-json">{jwtPayload}</CodeBlock>
                 </div>
-              ) : (
-                <div className="text-sm text-warning mt-3">Access token not available</div>
-              )}
+
+                {/* Access Token */}
+                <div className="form-control">
+                  <label className="label flex flex-col items-start space-y-1">
+                    <span className="label-text font-medium">Access Token (Signed with RS256)</span>
+                  </label>
+                  <div className="text-sm text-base-content/70 leading-relaxed ml-1">
+                    RS256 is an asymmetric signing algorithm defined in
+                    <a
+                      href="https://datatracker.ietf.org/doc/html/rfc7518#section-3.1"
+                      className="text-blue-600 underline ml-1"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      RFC 7518
+                    </a>
+                  </div>
+                  {gtwyAccessToken ? (
+                    <div className="mt-3">
+                      <CodeBlock className="language-text">{gtwyAccessToken}</CodeBlock>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-warning mt-3">Access token not available</div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Step 2: Add Script */}
-      <div className="card bg-base-100 border border-base-300" data-testid="integration-tab-step2">
-        <div className="card-body">
-          <h4 className="card-title text-base">Step 2: Add Script</h4>
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text">Add this script tag to your HTML</span>
-            </label>
-            <CodeBlock className="language-jsx" fromIntegration={true}>
-              {integrationScript}
-            </CodeBlock>
-          </div>
-          <div className="overflow-x-auto mt-4">
-            <table className="table table-sm">
-              <thead>
-                <tr>
-                  <th>Key</th>
-                  <th>Description</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tableData.map(([key, desc], idx) => (
-                  <tr key={idx}>
-                    <td className="font-mono text-sm">{key}</td>
-                    <td className="text-sm">{desc}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {/* Configure Interface */}
-      <div className="card bg-base-100 border border-base-300" data-testid="integration-tab-configure-interface">
-        <div className="card-body">
-          <h4 className="card-title text-base">Configure Interface</h4>
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text">Send Data to GTWY</span>
-            </label>
-            <CodeBlock className="language-javascript">{interfaceData}</CodeBlock>
-          </div>
-        </div>
-      </div>
-
-      {/* Step 3: Integration Functions */}
-      <div className="card bg-base-100 border border-base-300" data-testid="integration-tab-step3">
-        <div className="card-body">
-          <h4 className="card-title text-base">Step 3: Integration Functions</h4>
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text">Available Functions</span>
-            </label>
-            <CodeBlock className="language-javascript">{helperFunctions}</CodeBlock>
-          </div>
-        </div>
-      </div>
-
-      {/* Add Meta Data */}
-      <div className="card bg-base-100 border border-base-300">
-        <div className="card-body">
-          <h4 className="card-title text-base">Add Meta Data</h4>
-          <div className="form-control space-y-4">
-            <div>
-              <label className="label">
-                <span className="label-text font-medium">Merge meta (spreads new meta over existing)</span>
-              </label>
-              <CodeBlock className="language-javascript">{`window.openGtwy({\n  "agent_id": "your_agent_id",\n  "meta": {\n    "key": "value"\n  }\n});`}</CodeBlock>
-            </div>
-            <div>
-              <label className="label">
-                <span className="label-text font-medium">Replace meta (overwrites all existing meta)</span>
-              </label>
-              <CodeBlock className="language-javascript">{`window.openGtwy({\n  "agent_id": "your_agent_id",\n  "replaceMeta": {\n    "key": "value"\n  }\n});`}</CodeBlock>
+          {/* Step 2: Add Script */}
+          <div className="card bg-base-100 border border-base-300" data-testid="integration-tab-step2">
+            <div className="card-body">
+              <h4 className="card-title text-base">Step 2: Add Script</h4>
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text">Add this script tag to your HTML</span>
+                </label>
+                <CodeBlock className="language-jsx" fromIntegration={true}>
+                  {integrationScript}
+                </CodeBlock>
+              </div>
+              <div className="overflow-x-auto mt-4">
+                <table className="table table-sm">
+                  <thead>
+                    <tr>
+                      <th>Key</th>
+                      <th>Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tableData.map(([key, desc], idx) => (
+                      <tr key={idx}>
+                        <td className="font-mono text-sm">{key}</td>
+                        <td className="text-sm">{desc}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Get Agent Data Using User ID */}
-      <div className="card bg-base-100 border border-base-300">
-        <div className="card-body">
-          <h4 className="card-title text-base">Get Agent Data Using User ID</h4>
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text">Use this script to get data using user id</span>
-            </label>
-            <div>
-              <CodeBlock className="language-bash">{getDataUsingUserId}</CodeBlock>
-              <p className="text-sm text-base-content/70 mt-4">
-                Note: Pass <CodeBlock inline>agent_id="your_agent_id"</CodeBlock> in the params if you want to get the
-                data of specific agent.
-              </p>
+          {/* Configure Interface */}
+          <div className="card bg-base-100 border border-base-300" data-testid="integration-tab-configure-interface">
+            <div className="card-body">
+              <h4 className="card-title text-base">Configure Interface</h4>
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text">Send Data to GTWY</span>
+                </label>
+                <CodeBlock className="language-javascript">{interfaceData}</CodeBlock>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Event Listener */}
-      <div className="card bg-base-100 border border-base-300" data-testid="integration-tab-event-listener">
-        <div className="card-body">
-          <h4 className="card-title text-base">Add Event Listener</h4>
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text">Add this script to receive GTWY events</span>
-            </label>
-            <CodeBlock className="language-jsx">{eventListenerScript}</CodeBlock>
+          {/* Step 3: Integration Functions */}
+          <div className="card bg-base-100 border border-base-300" data-testid="integration-tab-step3">
+            <div className="card-body">
+              <h4 className="card-title text-base">Step 3: Integration Functions</h4>
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text">Available Functions</span>
+                </label>
+                <CodeBlock className="language-javascript">{helperFunctions}</CodeBlock>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+
+          {/* Add Meta Data */}
+          <div className="card bg-base-100 border border-base-300">
+            <div className="card-body">
+              <h4 className="card-title text-base">Add Meta Data</h4>
+              <div className="form-control space-y-4">
+                <div>
+                  <label className="label">
+                    <span className="label-text font-medium">Merge meta (spreads new meta over existing)</span>
+                  </label>
+                  <CodeBlock className="language-javascript">{`window.openGtwy({\n  "agent_id": "your_agent_id",\n  "meta": {\n    "key": "value"\n  }\n});`}</CodeBlock>
+                </div>
+                <div>
+                  <label className="label">
+                    <span className="label-text font-medium">Replace meta (overwrites all existing meta)</span>
+                  </label>
+                  <CodeBlock className="language-javascript">{`window.openGtwy({\n  "agent_id": "your_agent_id",\n  "replaceMeta": {\n    "key": "value"\n  }\n});`}</CodeBlock>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Get Agent Data Using User ID */}
+          <div className="card bg-base-100 border border-base-300">
+            <div className="card-body">
+              <h4 className="card-title text-base">Get Agent Data Using User ID</h4>
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text">Use this script to get data using user id</span>
+                </label>
+                <div>
+                  <CodeBlock className="language-bash">{getDataUsingUserId}</CodeBlock>
+                  <p className="text-sm text-base-content/70 mt-4">
+                    Note: Pass <CodeBlock inline>agent_id="your_agent_id"</CodeBlock> in the params if you want to get
+                    the data of specific agent.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Event Listener */}
+          <div className="card bg-base-100 border border-base-300" data-testid="integration-tab-event-listener">
+            <div className="card-body">
+              <h4 className="card-title text-base">Add Event Listener</h4>
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text">Add this script to receive GTWY events</span>
+                </label>
+                <CodeBlock className="language-jsx">{eventListenerScript}</CodeBlock>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
